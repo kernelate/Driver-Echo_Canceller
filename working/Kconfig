@@ -1,0 +1,6 @@
+menuconfig ML7037_003_ECHO_CANCELLER
+	bool "ML7037-003 Echo Canceller"
+    if ML7037_003_ECHO_CANCELLER
+    config ML7037_SPI_DRIVER
+        tristate "ML7037-003 Echo Canceller SPI Driver"
+    endif
