@@ -32,6 +32,9 @@
 #define CR18_DEFAULT		0x02
 #define CR20_DEFAULT		0x10
 
+#define PDN_EN_REG              0x70
+#define RST_EN_REG              0x71
+
 
 int status = CHECK;
 unsigned char read_addr = 0xFF;
@@ -100,6 +103,9 @@ unsigned char ml7037_read(unsigned char craddr); /*ML7037 register read*/
 //CR20
 #define ML7037_EQLEN					_IOW(ML7037_IOCTL, 0x1C, ML7037_data)
 #define ML7037_EQL_MODE					_IOW(ML7037_IOCTL, 0x1D, ML7037_data)
+
+#define ML7037_PDN					_IOW(ML7037_IOCTL, 0x20, ML7037_data)
+#define ML7037_RST					_IOW(ML7037_IOCTL, 0x22, ML7037_data)
 
 /************************************************************************************/
 /*                                                                                  */

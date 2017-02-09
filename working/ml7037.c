@@ -21,7 +21,7 @@
 #endif
 
 #define DEV_NAME "ml7037-003"
-#define VERSION     "1.0.0"
+#define VERSION     "1.0.1" added i2c interface for PDN & RST PIN
 
 struct ml7037_device {
 	struct device 		*dev;
@@ -47,6 +47,14 @@ struct ml7037_device {
 	int tx_len;
 };
 
+struct ml7037_i2c {
+    struct input_dev *dev;
+    struct timer_list   rd_timer;           // keyscan timer
+    struct i2c_client *client;
+    unsigned int                wakeup_delay;           // key wakeup delay
+};
+
+static struct   i2c_client *this_client = NULL;	
 struct ml7037_device *ml7037;
 struct delayed_work spi_read_work;
 
@@ -279,6 +287,7 @@ static void ml7037_write_specific(unsigned char craddr, unsigned char reg_val, i
 	unsigned char reg_new;
 
 	reg_old = cr[cr_no];
+	reg_old = reg_old | 0xf0;
 	reg_new = reg_val | reg_old; 
 	cr[cr_no] = reg_new;
 	ml7037_write(craddr, reg_new);
@@ -294,239 +303,105 @@ static long ml7037_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 #if ML7037_DEBUG
 	printk("%s: %s\n", TAG, __func__);
 #endif
+	len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
+	if (len > 0)
+		return -EFAULT;
+
 	switch(cmd)
 	{
 		case ML7037_RVOL:
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR2, (unsigned char) m_data.value, 2);		
 			break;
 		case ML7037_TVOL:		
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write(CR3, m_data.value);
 			break;
 		case ML7037_APGA:		
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write(CR4, m_data.value);
 			break;
 		case ML7037_LPGA:		
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write(CR5, m_data.value);
 			break;
 		case ML7037_LTHR_MODE: //Line Echo Canceller Through Mode Selection Register		
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR11, (unsigned char) m_data.value, 11);	
 			break;
 		case ML7037_LECEN: //Line Echo Canceller Enable Register		
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR11, (unsigned char) m_data.value, 11);	
 			break;
 		case ML7037_LHLD: //Line Echo Canceller Filter Coefficients Update Suspension Register		
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR11, (unsigned char) m_data.value, 11);
 			break;
 		case ML7037_LCLP: //Line Echo Canceller Center Clip On/Off Register	
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR11, (unsigned char) m_data.value, 11);
 			break;
 		case ML7037_LSLC: //Line Echo Canceller Automatic SinL Level Control Register	
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR11, (unsigned char) m_data.value, 11);	
 			break;
 		case ML7037_LATT: //Line Echo Canceller ATT On/Off Register	
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR11, (unsigned char) m_data.value, 11);
 			break;
 		case ML7037_ATHR_MODE: //Acoustic Echo Canceller Through Mode Selection Register	
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR12, (unsigned char) m_data.value, 12);
 			break;
 		case ML7037_AECEN: //Acoustic Echo Canceller Enable Register	
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR12, (unsigned char) m_data.value, 12);	
 			break;
 		case ML7037_AHLD: //Acoustic Echo Canceller Filter Coefficients Update Suspension Register		
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR12, (unsigned char) m_data.value, 12);
 			break;
 		case ML7037_ACLP: //Acoustic Echo Canceller Center Clip On/Off Register	
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR12, (unsigned char) m_data.value, 12);
 			break;
 		case ML7037_ASLC: //Acoustic Echo Canceller Automatic SinA Level Control Register		
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR12, (unsigned char) m_data.value, 12);	
 			break;
 		case ML7037_AATT: //Acoustic Echo Canceller ATT On/Off Register		
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR12, (unsigned char) m_data.value, 12);
 			break;
 		case ML7037_ASOPAD: //Acoustic Echo Canceller SoutA Gain Level Control Registers		
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR13, (unsigned char) m_data.value, 13);
 			break;
 		case ML7037_ASIPAD: //Acoustic Echo Canceller SinA Loss Level Control Registers		
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR13, (unsigned char) m_data.value, 13);
 			break;
 		case ML7037_LSOPAD: //Line Echo Canceller SoutL Gain Level Control Registers		
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR13, (unsigned char) m_data.value, 13);	
 			break;
 		case ML7037_LSIPAD: //Line Echo Canceller SinL Loss Level Control Registers		
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR13, (unsigned char) m_data.value, 13);
 			break;
 		case ML7037_SLPTHR_MODE: //Slope Filter Through Mode Selection Register		
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR14, (unsigned char) m_data.value, 14);	
 			break;
 		case ML7037_NCTHR_MODE: //Noise Canceller Through Mode Selection Register	
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR14, (unsigned char) m_data.value, 14);
 			break;
 		case ML7037_AVREFEN: //Power-Down State AVREF/Analog Output Amps Control Register		
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR16, (unsigned char) m_data.value, 16);
 			break;
 		case ML7037_AVFROSEL: //Acoustic Side Analog Output Selection Register	
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR16, (unsigned char) m_data.value, 16);	
 			break;
 		case ML7037_LVFROSEL: //Line- Side Analog Output Selection Register	
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR16, (unsigned char) m_data.value, 16);
 			break;
 		case ML7037_AATT_MODE: //ATTsA Operation Mode Selection Register	
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR17, (unsigned char) m_data.value, 17);
 			break;
 		case ML7037_LATT_MODE: //ATTsA Operation Mode Selection Register	
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR18, (unsigned char) m_data.value, 18);
 			break;
 		case ML7037_EQLEN: //Equalizer On/Off Register
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR20, (unsigned char) m_data.value, 20);
 			break;
 		case ML7037_EQL_MODE: //Equalizer mode selection register	
-			len = copy_from_user(&m_data, (struct __user ML7037_data *) arg, sizeof(m_data));
-			if (len > 0)
-			{
-				return -EFAULT;
-			}
 			ml7037_write_specific(CR20, (unsigned char) m_data.value, 20);
+			break;
+		case ML7037_PDN: //Power Button	
+			i2c_smbus_write_byte_data(this_client,PDN_EN_REG,m_data.value);
+			break;
+
+		case ML7037_RST: //Reset Button
+			i2c_smbus_write_byte_data(this_client,RST_EN_REG,m_data.value);
 			break;
 		
 		default:
@@ -621,6 +496,22 @@ void deinit_spi_read_work(void){
 	cancel_delayed_work_sync(&spi_read_work);
 }
 
+void ml7037_power_off(void)
+{
+	i2c_smbus_write_byte_data(this_client,PDN_EN_REG,0x00);
+	gpio_set_value(DEN_GPIO,HIGH);
+	gpio_set_value(EXCK_GPIO,LOW);
+	gpio_set_value(DIN_GPIO,LOW);
+}
+
+void ml7037_power_on(void)
+{
+	i2c_smbus_write_byte_data(this_client,PDN_EN_REG,0x01);
+	gpio_set_value(DEN_GPIO,HIGH);
+	gpio_set_value(EXCK_GPIO,LOW);
+	gpio_set_value(DIN_GPIO,LOW);	
+}
+
 /********************************************/
 /* Internal Data Memory Access              */
 /********************************************/
@@ -630,6 +521,11 @@ void init_ml7037_reg(void)
 	printk("%s: %s\n", TAG, __func__);
 #endif
 	ml7037_default();
+	//ML7037 POWER ON/OFF
+	ml7037_power_off();
+	mdelay(20);
+	ml7037_power_on();
+
 	read_addr = CR10;
 	delay = msecs_to_jiffies(300);
 	schedule_delayed_work(&spi_read_work,10);
@@ -813,10 +709,13 @@ int init_gpio(void)
 		return ret;
 	}
 
+	i2c_smbus_write_byte_data(this_client,PDN_EN_REG,0x01);
+	i2c_smbus_write_byte_data(this_client,RST_EN_REG,0x01);
+
 	gpio_direction_output(DIN_GPIO, LOW);
 	gpio_direction_output(EXCK_GPIO, LOW);
 	gpio_direction_output(DEN_GPIO, HIGH);
-	
+
 	return 0;
 }
 
@@ -864,6 +763,7 @@ static int __devinit ml7037_probe(struct spi_device *spi)
 
 static int ml7037_remove(struct spi_device *spi)
 {
+	struct ml7037_device *ml7037 = dev_get_drvdata(&spi->dev);
 	status = CHECK;
 
 	cancel_delayed_work(&spi_read_work);
@@ -872,9 +772,86 @@ static int ml7037_remove(struct spi_device *spi)
 	gpio_free(DIN_GPIO);
 	gpio_free(EXCK_GPIO);
 	gpio_free(DEN_GPIO);
-	dev_set_drvdata(&spi->dev, NULL);
+	kfree(ml7037);
+	ml7037 = NULL;
 	return 0;
 }
+
+static int i2c_init_client(struct i2c_client *client)
+{
+	int status = 0;
+	struct ml7037_i2c *data = i2c_get_clientdata(client);
+	data->client = client;
+
+//	printk("RAN_EDIT: %s\n", __func__);
+	return status;
+}
+
+static int __devexit i2c_remove(struct i2c_client *client)
+{
+	i2c_smbus_write_byte_data(this_client,RST_EN_REG,0x00);
+	ml7037_power_off();
+	kfree(i2c_get_clientdata(client));
+	return 0;
+}
+
+static int __devinit i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
+{
+	int err = 0;
+	struct ml7037_i2c *data;
+
+#if ML7037_DEBUG
+	printk("RAN_EDIT: I2C- PROBE START\n");
+#endif
+	data = kzalloc(sizeof(struct ml7037_i2c), GFP_KERNEL);
+//	if(!data)
+    	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
+	{
+		err = -ENOMEM;
+#if ML7037_DEBUG     
+		printk("RAN_EDIT: !i2c_check_functionality\n");
+#endif        
+		goto exit;
+	}
+
+#if ML7037_DEBUG
+	printk("%s: I2C init\n", TAG);
+#endif
+	i2c_set_clientdata(client, data);
+    	data->client=client;
+    	this_client=client;	
+	/* Initialize the chip */
+	err = i2c_init_client(client);
+	if(err)
+		goto exit_free;
+
+	goto exit;
+	
+	exit_free:
+		kfree(data);
+	exit:
+		return err;
+}
+
+static const struct i2c_device_id ml7037_i2c_id[] =
+{
+	{ DEV_NAME, 0 },
+	{  }
+};
+
+MODULE_DEVICE_TABLE(i2c, ml7037_i2c_id);
+
+struct i2c_driver ml7037_i2c = 
+{
+	.driver =
+	{
+		.name = DEV_NAME,
+		.owner = THIS_MODULE,
+	},
+	.id_table = ml7037_i2c_id,
+	.probe    = i2c_probe,
+	.remove   = i2c_remove
+}; 
 
 static const struct spi_device_id ml7037_id[] = 
 {
@@ -894,9 +871,16 @@ static struct spi_driver ml7037_driver = {
 
 static int __init ml7037_init(void)
 {
+	int ret;
 #if ML7037_DEBUG
 	printk("%s: %s\n", TAG, __func__);
 #endif	
+	ret = i2c_add_driver(&ml7037_i2c);
+	if (ret)
+	{
+		printk("i2c add driver failed\n");
+		return -1;
+	}
 	misc_register(&ml7037_misc);
 	return spi_register_driver(&ml7037_driver);
 }
