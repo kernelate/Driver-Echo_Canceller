@@ -21,7 +21,7 @@
 #endif
 
 #define DEV_NAME "ml7037-003"
-#define VERSION     "1.0.1" added i2c interface for PDN & RST PIN
+#define VERSION     "1.0.1" //added i2c interface for PDN & RST PIN
 
 struct ml7037_device {
 	struct device 		*dev;
